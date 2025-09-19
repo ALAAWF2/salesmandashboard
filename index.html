@@ -25,6 +25,9 @@
     tr:hover{background:#fffdf8}
     .neg{color:#c62828; font-weight:700}
     label.chk{display:inline-flex; gap:6px; align-items:center; user-select:none}
+    .outlet-box{background:#fff; border-radius:14px; box-shadow:0 2px 6px rgba(0,0,0,.06); padding:14px; margin:16px 0}
+    .outlet-title{margin:0 0 10px; font-weight:700; color:#e67e22}
+    .hidden{display:none}
   </style>
 </head>
 <body>
@@ -56,7 +59,8 @@
     <div class="card"><div class="muted">متوسط الفاتورة</div><div id="kpiAvg" class="kpi-val">-</div></div>
   </div>
 
-  <table id="tbl">
+  <!-- جدول مفرد (يظهر عندما لا يكون هناك عرض متعدد) -->
+  <table id="tbl" class="">
     <thead>
       <tr>
         <th>الموظف</th>
@@ -75,48 +79,31 @@
     <tbody></tbody>
   </table>
 
+  <!-- حاوية العرض المتعدد (كونتينر لكل معرض) -->
+  <div id="multi" class="hidden"></div>
+
   <script>
-    // ---------- خريطة مدراء المناطق → المعارض ----------
+    // ==== خريطة مدراء المناطق → المعارض ====
     const managerOutlets = {
-      "المنطقة الغربية": [
-        "06-Red Sea Mall","13-Al-Yasmin Mall","54-THE VILLAGE"
-      ],
-      "اماني عسيري": [
-        "21-Abha Al_Rashid Mall New","43-Mujan Park","52-Al_Baha Mall","41-Khamis Avenue"
-      ],
-      "جهاد ايوبي": [
-        "16-Ehsa Othaim Mall","27-Dhahran Mall khobar","28-Al Nakheel Mall Dammam","36-Al jubail Mall","42-Dareen Mall Dammam","49-AlAhsa Mall"
-      ],
-      "خليل الصانع": [
-        "17-Arar Othaim Mall","22-Tabuk Park","23-Alia Mall Madinah","24-Yanbu Dana Mall","26-Al-Noor Mall Madinah","44-Al-Jouf Center"
-      ],
-      "رضوان عطيوي": [
-        "08-Makkah Mall","20-Sitten Street Makkah","55- Jabl Omar"
-      ],
-      "شريفة العمري": [
-        "05-Haifa Mall","07-Arab Mall","56- Aziz Mall 2","48 - Jeddah Park"
-      ],
-      "عبد الجليل الحبال": [
-        "15-Riyadh Othaim Mall","25-Rabwa Othaim Mall","39-Salam Mall Riyadh","50-Meem Plaza Riyadh"
-      ],
-      "عبدالله السرداح": [
-        "30-Tala Mall Riyadh","40-Hayat Mall Riyad","19-Hail Othaim Mall","47-Al-Nakheel Plaza"
-      ],
-      "عبيدة السباعي": [
-        "04-Andalos Mall","09-Al-Salam Mall","01-Jeddah INT Market","18-Al_Khayyat Center","53-Al Basateen Mall","57-Sauq7"
-      ],
-      "محمدكلو": [
-        "12-Al_Hamra Mall","32-Atyaf Mall Riyadh","38-Al_Riyadh Park","29-Al Nakheel Mall Riyadh","45- Riyadh Gallery Mall","46-Khaleej Mall Riyadh","51-Park Avenue Riyadh"
-      ],
-      "منطقة الطائف": [
-        "11-Jouri Mall","14-Al Kamal Mall"
-      ]
+      "المنطقة الغربية": ["06-Red Sea Mall","13-Al-Yasmin Mall","54-THE VILLAGE"],
+      "اماني عسيري": ["21-Abha Al_Rashid Mall New","43-Mujan Park","52-Al_Baha Mall","41-Khamis Avenue"],
+      "جهاد ايوبي": ["16-Ehsa Othaim Mall","27-Dhahran Mall khobar","28-Al Nakheel Mall Dammam","36-Al jubail Mall","42-Dareen Mall Dammam","49-AlAhsa Mall"],
+      "خليل الصانع": ["17-Arar Othaim Mall","22-Tabuk Park","23-Alia Mall Madinah","24-Yanbu Dana Mall","26-Al-Noor Mall Madinah","44-Al-Jouf Center"],
+      "رضوان عطيوي": ["08-Makkah Mall","20-Sitten Street Makkah","55- Jabl Omar"],
+      "شريفة العمري": ["05-Haifa Mall","07-Arab Mall","56- Aziz Mall 2","48 - Jeddah Park"],
+      "عبد الجليل الحبال": ["15-Riyadh Othaim Mall","25-Rabwa Othaim Mall","39-Salam Mall Riyadh","50-Meem Plaza Riyadh"],
+      "عبدالله السرداح": ["30-Tala Mall Riyadh","40-Hayat Mall Riyad","19-Hail Othaim Mall","47-Al-Nakheel Plaza"],
+      "عبيدة السباعي": ["04-Andalos Mall","09-Al-Salam Mall","01-Jeddah INT Market","18-Al_Khayyat Center","53-Al Basateen Mall","57-Sauq7"],
+      "محمدكلو": ["12-Al_Hamra Mall","32-Atyaf Mall Riyadh","38-Al_Riyadh Park","29-Al Nakheel Mall Riyadh","45- Riyadh Gallery Mall","46-Khaleej Mall Riyadh","51-Park Avenue Riyadh"],
+      "منطقة الطائف": ["11-Jouri Mall","14-Al Kamal Mall"]
     };
 
-    // ---------- أرقام وتواريخ ----------
+    // ==== بيانات و تواريخ ====
     const fmt = n => (+n||0).toLocaleString('en-US', {maximumFractionDigits:0});
     let facts=[], outlets=[], staff=[], staffMap={};
     let hist=[], histMap={};
+
+    const $ = sel => document.querySelector(sel);
 
     function parseD(s){ if(!s) return null; return new Date(s+'T00:00:00'); }
     function today0(){ const d=new Date(); d.setHours(0,0,0,0); return d; }
@@ -131,7 +118,6 @@
       return Math.floor((end - t)/86400000) + 1;
     }
 
-    // ---------- تاريخ الانتساب ----------
     function buildHistMap(){
       histMap = {};
       hist.forEach(r=>{
@@ -151,7 +137,6 @@
                             (!seg.end || refDate <= seg.end));
     }
 
-    // ---------- تحميل البيانات ----------
     async function loadData() {
       [facts, outlets, staff, hist] = await Promise.all([
         fetch('./dashboard_data/facts.json').then(r=>r.json()),
@@ -165,30 +150,23 @@
 
       buildHistMap();
 
-      // تعبئة مدراء المناطق
-      const mgrSel = document.getElementById('manager');
+      // مدراء المناطق
+      const mgrSel = $('#manager');
       mgrSel.innerHTML = '<option value="">كل المدراء</option>' +
         Object.keys(managerOutlets).map(m=>`<option>${m}</option>`).join('');
 
-      // تعبئة المعارض (عام)
       fillOutletsForManager('');
 
-      // نطاق تواريخ افتراضي
       const dates = facts.map(f=>f.bill_date).sort();
-      document.getElementById('from').value = dates[0] || '';
-      document.getElementById('to').value   = dates[dates.length-1] || '';
+      $('#from').value = dates[0] || '';
+      $('#to').value   = dates[dates.length-1] || '';
 
-      // عند تغيير المدير: حدّث قائمة المعارض
-      mgrSel.addEventListener('change', () => {
-        fillOutletsForManager(mgrSel.value);
-      });
-
+      mgrSel.addEventListener('change', () => fillOutletsForManager(mgrSel.value));
       render();
     }
 
-    // يبني قائمة المعارض حسب المدير المختار
     function fillOutletsForManager(managerName){
-      const sel = document.getElementById('outlet');
+      const sel = $('#outlet');
       sel.innerHTML = '';
       const optAll = document.createElement('option');
       optAll.value = '';
@@ -199,7 +177,6 @@
       if(managerName && managerOutlets[managerName]){
         list = managerOutlets[managerName];
       } else {
-        // كل المعارض من ملف outlets.json
         list = outlets.map(o=>o.outlet_name);
       }
       list.forEach(name=>{
@@ -209,76 +186,60 @@
       });
     }
 
-    // نطاق الفلترة المعروض
-    function filterData() {
-      const outletSel  = document.getElementById('outlet').value;
-      const managerSel = document.getElementById('manager').value;
-      const from = document.getElementById('from').value;
-      const to   = document.getElementById('to').value;
-
-      // قائمة المعارض المسموح بها حسب المدير (إن وجد)
-      const allowedByMgr = managerSel ? new Set(managerOutlets[managerSel] || []) : null;
-
-      return facts.filter(f => {
-        if (allowedByMgr && !allowedByMgr.has(f.outlet_name)) return false;
-        if (outletSel && f.outlet_name !== outletSel) return false;
-        if (from && f.bill_date < from) return false;
-        if (to && f.bill_date > to) return false;
-        return true;
-      });
-    }
-
-    // فلترة أسماء غير صالحة
     function isBadName(name){
       if(!name) return true;
       const n = String(name).trim();
       if(!n) return true;
       if (/^(unknow(n)?|unkonw)$/i.test(n)) return true;
-      if (/^unknown$/i.test(n)) return true; // "Unknown" فقط (بدون رقم)
+      if (/^unknown$/i.test(n)) return true; // "Unknown" فقط
       return false;
     }
 
-    // ---------- التصيير ----------
-    function render() {
-      const f = filterData();
-      const outletSel  = document.getElementById('outlet').value;
-      const managerSel = document.getElementById('manager').value;
-      const onlyCurrent = document.getElementById('onlyCurrent').checked;
-      const toStr = document.getElementById('to').value;
-      const refDate = parseD(toStr) || today0();
+    // تبني صفوف الجدول لــ معرض معيّن (اسم المعرض أو '')
+    function buildRowsForOutlet(outletFilter){
+      const managerSel = $('#manager').value;
+      const from = $('#from').value;
+      const to   = $('#to').value;
 
-      // إجمالي مبيعات الفترة (للمساهمة %)
-      const outletTotal = f.reduce((s,r)=>s + (+r.net_amount||0), 0);
+      const allowedByMgr = managerSel ? new Set(managerOutlets[managerSel] || []) : null;
+
+      // فلترة بيانات الفترة/المدير/المعرض
+      const F = facts.filter(f=>{
+        if (allowedByMgr && !allowedByMgr.has(f.outlet_name)) return false;
+        if (outletFilter && f.outlet_name !== outletFilter) return false;
+        if (from && f.bill_date < from) return false;
+        if (to && f.bill_date > to) return false;
+        return true;
+      });
+
+      const outletTotal = F.reduce((s,r)=>s+(+r.net_amount||0),0);
 
       // تجميع حسب الموظف
       const byStaff = {};
-      f.forEach(r=>{
-        const id   = r.staff_id;
+      F.forEach(r=>{
+        const id = r.staff_id;
         const name = (r.staff_name || staffMap[id]?.staff_name || '').trim();
         if (isBadName(name)) return;
-
         if(!byStaff[id]) byStaff[id] = {name, net:0, bills:0, oneBills:0};
         byStaff[id].net      += +r.net_amount || 0;
         byStaff[id].bills    += +r.bills || 0;
         byStaff[id].oneBills += +r.one_item_bills || 0;
       });
 
-      // ---- حساب MTD (من أول الشهر حتى "إلى") مع احترام مدير المنطقة والمعرض المختار ----
-      const mStart = monthStartOf(toStr).toISOString().slice(0,10);
-      const mEnd   = toStr || (facts.length ? facts.map(x=>x.bill_date).sort().slice(-1)[0] : '');
-      const allowedByMgr = managerSel ? new Set(managerOutlets[managerSel] || []) : null;
+      // MTD (من بداية الشهر حتى "إلى")
+      const mStart = monthStartOf(to).toISOString().slice(0,10);
+      const mEnd   = to || (facts.length ? facts.map(x=>x.bill_date).sort().slice(-1)[0] : '');
 
-      const mtd = facts.filter(r => {
+      const MTD = facts.filter(r=>{
         if (allowedByMgr && !allowedByMgr.has(r.outlet_name)) return false;
-        if (outletSel && r.outlet_name !== outletSel) return false;
+        if (outletFilter && r.outlet_name !== outletFilter) return false;
         if (r.bill_date < mStart) return false;
         if (mEnd && r.bill_date > mEnd) return false;
         return true;
       });
-
       const byStaffMTD = {};
-      mtd.forEach(r=>{
-        const id   = r.staff_id;
+      MTD.forEach(r=>{
+        const id = r.staff_id;
         const name = (r.staff_name || staffMap[id]?.staff_name || '').trim();
         if (isBadName(name)) return;
         if(!byStaffMTD[id]) byStaffMTD[id] = {name, net:0};
@@ -287,37 +248,46 @@
 
       const dRemMonth = daysRemainingToMonthEnd();
       let rows = Object.entries(byStaff).map(([id,v])=>{
-        const target  = +(staffMap[id]?.target_amount || 0);
-        const mtdNet  = (byStaffMTD[id]?.net || 0);
-        const achPct  = target>0 ? (mtdNet/target*100) : 0;
-        const remain  = Math.max(target - mtdNet, 0);
-        const daily   = dRemMonth>0 ? (remain/dRemMonth) : 0;
+        const target = +(staffMap[id]?.target_amount || 0);
+        const mtdNet = (byStaffMTD[id]?.net || 0);
+        const achPct = target>0 ? (mtdNet/target*100) : 0;
+        const remain = Math.max(target - mtdNet, 0);
+        const daily  = dRemMonth>0 ? (remain/dRemMonth) : 0;
         const contrib = outletTotal>0 ? (v.net/outletTotal*100) : 0;
         const onePct  = v.bills>0 ? (v.oneBills/v.bills*100) : 0;
         const avg     = v.bills ? (v.net/v.bills) : 0;
-
         return { id, name:v.name, net:v.net, bills:v.bills, oneBills:v.oneBills,
                  onePct, contribPct:contrib, target, achPct, remain, daily, avg };
       });
 
-      // “إظهار موظفي المعرض الحالي فقط” يعمل عند اختيار معرض محدد فقط
-      if (onlyCurrent && outletSel) {
-        rows = rows.filter(r => isInOutletOnDate(r.id, outletSel, refDate));
-      }
-
       rows.sort((a,b)=>b.net-a.net);
 
-      // KPIs
+      // KPIs لهذه المجموعة
       const totNet   = rows.reduce((s,x)=>s+x.net,0);
       const totBills = rows.reduce((s,x)=>s+x.bills,0);
-      document.getElementById('kpiNet').textContent  = fmt(totNet);
-      document.getElementById('kpiBills').textContent= fmt(totBills);
-      document.getElementById('kpiAvg').textContent  = fmt(totBills? totNet/totBills:0);
 
-      // جدول
-      const tb = document.querySelector('#tbl tbody');
+      return {rows, totNet, totBills};
+    }
+
+    function renderSingleTable(outletName){
+      const onlyCurrent = $('#onlyCurrent').checked;
+      const refDate = parseD($('#to').value) || today0();
+
+      const {rows, totNet, totBills} = buildRowsForOutlet(outletName);
+
+      // إظهار موظفي المعرض الحالي فقط
+      const finalRows = (onlyCurrent && outletName)
+        ? rows.filter(r=> isInOutletOnDate(r.id, outletName, refDate))
+        : rows;
+
+      // KPIs أعلى الصفحة (لعرض مفرد)
+      $('#kpiNet').textContent  = fmt(finalRows.reduce((s,x)=>s+x.net,0));
+      $('#kpiBills').textContent= fmt(finalRows.reduce((s,x)=>s+x.bills,0));
+      $('#kpiAvg').textContent  = fmt((finalRows.reduce((s,x)=>s+x.net,0)) / (finalRows.reduce((s,x)=>s+x.bills,0) || 1));
+
+      const tb = $('#tbl tbody');
       tb.innerHTML = '';
-      rows.forEach(r=>{
+      finalRows.forEach(r=>{
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${r.name}</td>
@@ -334,6 +304,85 @@
         `;
         tb.appendChild(tr);
       });
+    }
+
+    function renderMultiForManager(managerName){
+      const wrap = $('#multi');
+      wrap.innerHTML = '';
+
+      const outletsList = managerOutlets[managerName] || [];
+      let totalNetAll = 0, totalBillsAll = 0;
+
+      outletsList.forEach(outName=>{
+        const {rows, totNet, totBills} = buildRowsForOutlet(outName);
+        totalNetAll += totNet; totalBillsAll += totBills;
+
+        const box = document.createElement('div');
+        box.className = 'outlet-box';
+        box.innerHTML = `
+          <h3 class="outlet-title">${outName}</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>الموظف</th>
+                <th>المبيعات الصافية</th>
+                <th>عدد الفواتير</th>
+                <th>عدد فواتير قطعة واحدة</th>
+                <th>٪ فواتير قطعة واحدة</th>
+                <th>مساهمة الموظف ٪</th>
+                <th>التارجت</th>
+                <th>٪ تحقيق التارجت (شهري)</th>
+                <th>المتبقي للتارجت (شهري)</th>
+                <th>اليومي المتبقي (حتى نهاية الشهر)</th>
+                <th>متوسط الفاتورة</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        `;
+        const tbody = box.querySelector('tbody');
+        rows.forEach(r=>{
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${r.name}</td>
+            <td>${fmt(r.net)}</td>
+            <td>${fmt(r.bills)}</td>
+            <td>${fmt(r.oneBills)}</td>
+            <td>${r.onePct.toFixed(1)}%</td>
+            <td>${r.contribPct.toFixed(1)}%</td>
+            <td>${fmt(r.target)}</td>
+            <td>${r.achPct.toFixed(1)}%</td>
+            <td class="${r.remain>0?'neg':''}">${fmt(r.remain)}</td>
+            <td>${fmt(r.daily)}</td>
+            <td>${fmt(r.avg)}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        wrap.appendChild(box);
+      });
+
+      // KPIs إجمالي كل معارض المدير
+      $('#kpiNet').textContent  = fmt(totalNetAll);
+      $('#kpiBills').textContent= fmt(totalBillsAll);
+      $('#kpiAvg').textContent  = fmt(totalNetAll/(totalBillsAll||1));
+    }
+
+    function render() {
+      const managerSel = $('#manager').value;
+      const outletSel  = $('#outlet').value;
+
+      // إذا كان في مدير مختار و"المعرض" فارغ → عرض متعدد
+      if (managerSel && !outletSel) {
+        $('#tbl').classList.add('hidden');
+        $('#multi').classList.remove('hidden');
+        renderMultiForManager(managerSel);
+      } else {
+        // عرض مفرد (كل المدراء أو مدير + معرض معيّن)
+        $('#multi').classList.add('hidden');
+        $('#tbl').classList.remove('hidden');
+        renderSingleTable(outletSel || ''); // فارغ = كل المعارض بعد فلترة المدير (لو موجود)
+      }
     }
 
     document.getElementById('apply').addEventListener('click', render);
