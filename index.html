@@ -12,9 +12,7 @@
     body{font-family:Tajawal,system-ui,-apple-system,Segoe UI,Roboto,Arial; background:var(--bg); color:var(--ink); margin:0; padding:24px;}
     h1{margin:0 0 12px;color:var(--brand)}
     .controls{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; align-items:center}
-    select,input,button{padding:8px 10px;border:1px solid #e1e8ed;border-radius:8px;background:#fff}
-    button{background:var(--brand);color:#fff;border-color:var(--brand);cursor:pointer}
-    button:hover{opacity:.95}
+    select,input{padding:8px 10px;border:1px solid #e1e8ed;border-radius:8px;background:#fff}
     .kpis{display:flex; gap:16px; margin:12px 0 16px; flex-wrap:wrap}
     .card{background:var(--card); padding:12px 16px; border-radius:12px; box-shadow:0 1px 4px rgba(0,0,0,.07); min-width:160px}
     .muted{color:var(--muted); font-size:12px}
@@ -50,7 +48,6 @@
       <input type="checkbox" id="onlyCurrent" checked>
       إظهار موظفي المعرض الحالي فقط
     </label>
-    <button id="apply">تطبيق الفلتر</button>
   </div>
 
   <div class="kpis">
@@ -161,7 +158,17 @@
       $('#from').value = dates[0] || '';
       $('#to').value   = dates[dates.length-1] || '';
 
-      mgrSel.addEventListener('change', () => fillOutletsForManager(mgrSel.value));
+      // تطبيق الفلاتر تلقائيًا عند التغيير
+      ['outlet','from','to','onlyCurrent'].forEach(id=>{
+        const el = document.getElementById(id);
+        el.addEventListener('change', render);
+        el.addEventListener('input', render);
+      });
+      mgrSel.addEventListener('change', () => {
+        fillOutletsForManager(mgrSel.value);
+        render();
+      });
+
       render();
     }
 
@@ -281,9 +288,11 @@
         : rows;
 
       // KPIs أعلى الصفحة (لعرض مفرد)
-      $('#kpiNet').textContent  = fmt(finalRows.reduce((s,x)=>s+x.net,0));
-      $('#kpiBills').textContent= fmt(finalRows.reduce((s,x)=>s+x.bills,0));
-      $('#kpiAvg').textContent  = fmt((finalRows.reduce((s,x)=>s+x.net,0)) / (finalRows.reduce((s,x)=>s+x.bills,0) || 1));
+      const netSum   = finalRows.reduce((s,x)=>s+x.net,0);
+      const billsSum = finalRows.reduce((s,x)=>s+x.bills,0);
+      $('#kpiNet').textContent  = fmt(netSum);
+      $('#kpiBills').textContent= fmt(billsSum);
+      $('#kpiAvg').textContent  = fmt(netSum/(billsSum||1));
 
       const tb = $('#tbl tbody');
       tb.innerHTML = '';
@@ -385,7 +394,6 @@
       }
     }
 
-    document.getElementById('apply').addEventListener('click', render);
     loadData();
   </script>
 </body>
