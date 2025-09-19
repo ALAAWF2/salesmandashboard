@@ -31,6 +31,9 @@
   <h1>لوحة مبيعات الموظفين</h1>
 
   <div class="controls">
+    <label>مدير المنطقة:
+      <select id="manager"></select>
+    </label>
     <label>المعرض:
       <select id="outlet"></select>
     </label>
@@ -73,13 +76,48 @@
   </table>
 
   <script>
-    // تنسيقات أرقام
-    const fmt  = n => (+n||0).toLocaleString('en-US', {maximumFractionDigits:0});
+    // ---------- خريطة مدراء المناطق → المعارض ----------
+    const managerOutlets = {
+      "المنطقة الغربية": [
+        "06-Red Sea Mall","13-Al-Yasmin Mall","54-THE VILLAGE"
+      ],
+      "اماني عسيري": [
+        "21-Abha Al_Rashid Mall New","43-Mujan Park","52-Al_Baha Mall","41-Khamis Avenue"
+      ],
+      "جهاد ايوبي": [
+        "16-Ehsa Othaim Mall","27-Dhahran Mall khobar","28-Al Nakheel Mall Dammam","36-Al jubail Mall","42-Dareen Mall Dammam","49-AlAhsa Mall"
+      ],
+      "خليل الصانع": [
+        "17-Arar Othaim Mall","22-Tabuk Park","23-Alia Mall Madinah","24-Yanbu Dana Mall","26-Al-Noor Mall Madinah","44-Al-Jouf Center"
+      ],
+      "رضوان عطيوي": [
+        "08-Makkah Mall","20-Sitten Street Makkah","55- Jabl Omar"
+      ],
+      "شريفة العمري": [
+        "05-Haifa Mall","07-Arab Mall","56- Aziz Mall 2","48 - Jeddah Park"
+      ],
+      "عبد الجليل الحبال": [
+        "15-Riyadh Othaim Mall","25-Rabwa Othaim Mall","39-Salam Mall Riyadh","50-Meem Plaza Riyadh"
+      ],
+      "عبدالله السرداح": [
+        "30-Tala Mall Riyadh","40-Hayat Mall Riyad","19-Hail Othaim Mall","47-Al-Nakheel Plaza"
+      ],
+      "عبيدة السباعي": [
+        "04-Andalos Mall","09-Al-Salam Mall","01-Jeddah INT Market","18-Al_Khayyat Center","53-Al Basateen Mall","57-Sauq7"
+      ],
+      "محمدكلو": [
+        "12-Al_Hamra Mall","32-Atyaf Mall Riyadh","38-Al_Riyadh Park","29-Al Nakheel Mall Riyadh","45- Riyadh Gallery Mall","46-Khaleej Mall Riyadh","51-Park Avenue Riyadh"
+      ],
+      "منطقة الطائف": [
+        "11-Jouri Mall","14-Al Kamal Mall"
+      ]
+    };
 
+    // ---------- أرقام وتواريخ ----------
+    const fmt = n => (+n||0).toLocaleString('en-US', {maximumFractionDigits:0});
     let facts=[], outlets=[], staff=[], staffMap={};
-    let hist=[], histMap={};   // تاريخ الانتساب
+    let hist=[], histMap={};
 
-    // ====== تواريخ مساعدة ======
     function parseD(s){ if(!s) return null; return new Date(s+'T00:00:00'); }
     function today0(){ const d=new Date(); d.setHours(0,0,0,0); return d; }
     function monthStartOf(toStr){
@@ -93,7 +131,7 @@
       return Math.floor((end - t)/86400000) + 1;
     }
 
-    // ====== خريطة التاريخ ======
+    // ---------- تاريخ الانتساب ----------
     function buildHistMap(){
       histMap = {};
       hist.forEach(r=>{
@@ -108,14 +146,12 @@
     }
     function isInOutletOnDate(staffId, outlet, refDate){
       const arr = histMap[staffId] || [];
-      return arr.some(seg=>{
-        return seg.outlet_name === outlet &&
-               refDate >= seg.start &&
-               (!seg.end || refDate <= seg.end);
-      });
+      return arr.some(seg=> seg.outlet_name === outlet &&
+                            refDate >= seg.start &&
+                            (!seg.end || refDate <= seg.end));
     }
 
-    // ====== تحميل البيانات ======
+    // ---------- تحميل البيانات ----------
     async function loadData() {
       [facts, outlets, staff, hist] = await Promise.all([
         fetch('./dashboard_data/facts.json').then(r=>r.json()),
@@ -129,57 +165,92 @@
 
       buildHistMap();
 
-      // تعبئة المعارض
-      const sel = document.getElementById('outlet');
-      sel.innerHTML = '<option value="">كل المعارض</option>';
-      outlets.forEach(o=>{
-        const opt = document.createElement('option');
-        opt.value = o.outlet_name; opt.textContent = o.outlet_name;
-        sel.appendChild(opt);
-      });
+      // تعبئة مدراء المناطق
+      const mgrSel = document.getElementById('manager');
+      mgrSel.innerHTML = '<option value="">كل المدراء</option>' +
+        Object.keys(managerOutlets).map(m=>`<option>${m}</option>`).join('');
 
-      // نطاق تواريخ افتراضي من أول يوم لآخر يوم موجود
+      // تعبئة المعارض (عام)
+      fillOutletsForManager('');
+
+      // نطاق تواريخ افتراضي
       const dates = facts.map(f=>f.bill_date).sort();
       document.getElementById('from').value = dates[0] || '';
       document.getElementById('to').value   = dates[dates.length-1] || '';
 
+      // عند تغيير المدير: حدّث قائمة المعارض
+      mgrSel.addEventListener('change', () => {
+        fillOutletsForManager(mgrSel.value);
+      });
+
       render();
     }
 
-    // نطاق الفلترة للعرض
-    function filterData() {
-      const outlet = document.getElementById('outlet').value;
-      const from = document.getElementById('from').value;
-      const to   = document.getElementById('to').value;
-      return facts.filter(f =>
-        (!outlet || f.outlet_name===outlet) &&
-        (!from || f.bill_date >= from) &&
-        (!to   || f.bill_date <= to)
-      );
+    // يبني قائمة المعارض حسب المدير المختار
+    function fillOutletsForManager(managerName){
+      const sel = document.getElementById('outlet');
+      sel.innerHTML = '';
+      const optAll = document.createElement('option');
+      optAll.value = '';
+      optAll.textContent = 'كل المعارض';
+      sel.appendChild(optAll);
+
+      let list = [];
+      if(managerName && managerOutlets[managerName]){
+        list = managerOutlets[managerName];
+      } else {
+        // كل المعارض من ملف outlets.json
+        list = outlets.map(o=>o.outlet_name);
+      }
+      list.forEach(name=>{
+        const o = document.createElement('option');
+        o.value = name; o.textContent = name;
+        sel.appendChild(o);
+      });
     }
 
-    // فلترة أسماء غير صالحة: فارغ أو Unknown/Unkown/Unknow بدون رقم
+    // نطاق الفلترة المعروض
+    function filterData() {
+      const outletSel  = document.getElementById('outlet').value;
+      const managerSel = document.getElementById('manager').value;
+      const from = document.getElementById('from').value;
+      const to   = document.getElementById('to').value;
+
+      // قائمة المعارض المسموح بها حسب المدير (إن وجد)
+      const allowedByMgr = managerSel ? new Set(managerOutlets[managerSel] || []) : null;
+
+      return facts.filter(f => {
+        if (allowedByMgr && !allowedByMgr.has(f.outlet_name)) return false;
+        if (outletSel && f.outlet_name !== outletSel) return false;
+        if (from && f.bill_date < from) return false;
+        if (to && f.bill_date > to) return false;
+        return true;
+      });
+    }
+
+    // فلترة أسماء غير صالحة
     function isBadName(name){
       if(!name) return true;
       const n = String(name).trim();
       if(!n) return true;
       if (/^(unknow(n)?|unkonw)$/i.test(n)) return true;
-      if (/^unknown$/i.test(n)) return true; // "Unknown" فقط
+      if (/^unknown$/i.test(n)) return true; // "Unknown" فقط (بدون رقم)
       return false;
     }
 
-    // ====== التصيير ======
+    // ---------- التصيير ----------
     function render() {
       const f = filterData();
       const outletSel  = document.getElementById('outlet').value;
+      const managerSel = document.getElementById('manager').value;
       const onlyCurrent = document.getElementById('onlyCurrent').checked;
       const toStr = document.getElementById('to').value;
       const refDate = parseD(toStr) || today0();
 
-      // إجمالي مبيعات المعرض للفترة (للمساهمة %)
+      // إجمالي مبيعات الفترة (للمساهمة %)
       const outletTotal = f.reduce((s,r)=>s + (+r.net_amount||0), 0);
 
-      // تجميع حسب الموظف للفترة المعروضة (للجدول)
+      // تجميع حسب الموظف
       const byStaff = {};
       f.forEach(r=>{
         const id   = r.staff_id;
@@ -192,33 +263,35 @@
         byStaff[id].oneBills += +r.one_item_bills || 0;
       });
 
-      // -------- حساب MTD للتارجت (من أول الشهر حتى تاريخ "إلى") --------
+      // ---- حساب MTD (من أول الشهر حتى "إلى") مع احترام مدير المنطقة والمعرض المختار ----
       const mStart = monthStartOf(toStr).toISOString().slice(0,10);
       const mEnd   = toStr || (facts.length ? facts.map(x=>x.bill_date).sort().slice(-1)[0] : '');
-      const mtd = facts.filter(r =>
-        (!outletSel || r.outlet_name === outletSel) &&
-        r.bill_date >= mStart &&
-        (!mEnd || r.bill_date <= mEnd)
-      );
+      const allowedByMgr = managerSel ? new Set(managerOutlets[managerSel] || []) : null;
+
+      const mtd = facts.filter(r => {
+        if (allowedByMgr && !allowedByMgr.has(r.outlet_name)) return false;
+        if (outletSel && r.outlet_name !== outletSel) return false;
+        if (r.bill_date < mStart) return false;
+        if (mEnd && r.bill_date > mEnd) return false;
+        return true;
+      });
 
       const byStaffMTD = {};
       mtd.forEach(r=>{
         const id   = r.staff_id;
         const name = (r.staff_name || staffMap[id]?.staff_name || '').trim();
         if (isBadName(name)) return;
-
         if(!byStaffMTD[id]) byStaffMTD[id] = {name, net:0};
         byStaffMTD[id].net += +r.net_amount || 0;
       });
 
-      // بناء الصفوف
       const dRemMonth = daysRemainingToMonthEnd();
       let rows = Object.entries(byStaff).map(([id,v])=>{
         const target  = +(staffMap[id]?.target_amount || 0);
-        const mtdNet  = (byStaffMTD[id]?.net || 0);               // صافي الموظف من بداية الشهر
-        const achPct  = target>0 ? (mtdNet/target*100) : 0;        // نسبة تحقيق التارجت (شهري)
-        const remain  = Math.max(target - mtdNet, 0);              // المتبقي (شهري)
-        const daily   = dRemMonth>0 ? (remain/dRemMonth) : 0;      // اليومية المتبقية حتى نهاية الشهر
+        const mtdNet  = (byStaffMTD[id]?.net || 0);
+        const achPct  = target>0 ? (mtdNet/target*100) : 0;
+        const remain  = Math.max(target - mtdNet, 0);
+        const daily   = dRemMonth>0 ? (remain/dRemMonth) : 0;
         const contrib = outletTotal>0 ? (v.net/outletTotal*100) : 0;
         const onePct  = v.bills>0 ? (v.oneBills/v.bills*100) : 0;
         const avg     = v.bills ? (v.net/v.bills) : 0;
@@ -227,21 +300,21 @@
                  onePct, contribPct:contrib, target, achPct, remain, daily, avg };
       });
 
-      // فلترة "موظفي المعرض الحالي فقط"
+      // “إظهار موظفي المعرض الحالي فقط” يعمل عند اختيار معرض محدد فقط
       if (onlyCurrent && outletSel) {
         rows = rows.filter(r => isInOutletOnDate(r.id, outletSel, refDate));
       }
 
       rows.sort((a,b)=>b.net-a.net);
 
-      // KPIs أعلى الصفحة (حسب الفترة المعروضة)
+      // KPIs
       const totNet   = rows.reduce((s,x)=>s+x.net,0);
       const totBills = rows.reduce((s,x)=>s+x.bills,0);
       document.getElementById('kpiNet').textContent  = fmt(totNet);
       document.getElementById('kpiBills').textContent= fmt(totBills);
       document.getElementById('kpiAvg').textContent  = fmt(totBills? totNet/totBills:0);
 
-      // بناء الجدول
+      // جدول
       const tb = document.querySelector('#tbl tbody');
       tb.innerHTML = '';
       rows.forEach(r=>{
