@@ -26,6 +26,24 @@
     .outlet-box{background:#fff; border-radius:14px; box-shadow:0 2px 6px rgba(0,0,0,.06); padding:14px; margin:16px 0}
     .outlet-title{margin:0 0 10px; font-weight:700; color:#e67e22}
     .hidden{display:none}
+
+    /* ===== Top 5 block (مبسّط) ===== */
+    .top5-card{background:#fff; border-radius:12px; box-shadow:0 1px 4px rgba(0,0,0,.07); padding:12px 14px; margin: 6px 0 16px}
+    .top5-head{display:flex; align-items:center; justify-content:space-between; gap:8px}
+    .top5-title{margin:0; color:#e67e22; font-weight:700}
+    .btns{display:flex; gap:6px; flex-wrap:wrap}
+    .btn{padding:6px 10px;border:1px solid #ddd;border-radius:8px;background:#fafafa;cursor:pointer;font-size:13px}
+    .btn.active{background:#e67e22;color:#fff;border-color:#e67e22}
+
+    .top5-list .row{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px dashed #f1f5f9}
+    .row b{color:#243b53}
+
+    /* أرقام واضحة وكبيرة */
+    .metrics{display:flex; gap:14px; align-items:center; flex-wrap:wrap}
+    .metric{display:flex; flex-direction:column; align-items:flex-end; min-width:120px}
+    .metric .label{font-size:11px; color:#90a4ae}
+    .metric .value{font-size:20px; font-weight:700; color:#243b53; line-height:1}
+    .metric.big .value{font-size:22px}
   </style>
 </head>
 <body>
@@ -56,7 +74,20 @@
     <div class="card"><div class="muted">متوسط الفاتورة</div><div id="kpiAvg" class="kpi-val">-</div></div>
   </div>
 
-  <!-- جدول مفرد (يظهر عندما لا يكون هناك عرض متعدد) -->
+  <!-- === Top 5 block === -->
+  <div class="top5-card">
+    <div class="top5-head">
+      <h3 class="top5-title">أفضل 5 موظفين</h3>
+      <div class="btns">
+        <button id="btnTopSales" class="btn">أعلى مبيعات</button>
+        <button id="btnTopAchv"  class="btn">تحقيق التارجت</button>
+        <button id="btnTopEff"   class="btn">كفاءة الموظف </button>
+      </div>
+    </div>
+    <div id="top5List" class="top5-list" style="margin-top:8px;"></div>
+  </div>
+
+  <!-- جدول مفرد -->
   <table id="tbl" class="">
     <thead>
       <tr>
@@ -76,7 +107,7 @@
     <tbody></tbody>
   </table>
 
-  <!-- حاوية العرض المتعدد (كونتينر لكل معرض) -->
+  <!-- عرض متعدد -->
   <div id="multi" class="hidden"></div>
 
   <script>
@@ -97,10 +128,11 @@
 
     // ==== بيانات و تواريخ ====
     const fmt = n => (+n||0).toLocaleString('en-US', {maximumFractionDigits:0});
+    const $ = sel => document.querySelector(sel);
+
     let facts=[], outlets=[], staff=[], staffMap={};
     let hist=[], histMap={};
-
-    const $ = sel => document.querySelector(sel);
+    let currentTopMode = 'sales'; // sales | achv | eff
 
     function parseD(s){ if(!s) return null; return new Date(s+'T00:00:00'); }
     function today0(){ const d=new Date(); d.setHours(0,0,0,0); return d; }
@@ -158,7 +190,7 @@
       $('#from').value = dates[0] || '';
       $('#to').value   = dates[dates.length-1] || '';
 
-      // تطبيق الفلاتر تلقائيًا عند التغيير
+      // ربط الأحداث
       ['outlet','from','to','onlyCurrent'].forEach(id=>{
         const el = document.getElementById(id);
         el.addEventListener('change', render);
@@ -168,6 +200,11 @@
         fillOutletsForManager(mgrSel.value);
         render();
       });
+
+      // أزرار Top 5
+      $('#btnTopSales').onclick = ()=>{ currentTopMode='sales'; render(); };
+      $('#btnTopAchv').onclick  = ()=>{ currentTopMode='achv';  render(); };
+      $('#btnTopEff').onclick   = ()=>{ currentTopMode='eff';   render(); };
 
       render();
     }
@@ -198,11 +235,11 @@
       const n = String(name).trim();
       if(!n) return true;
       if (/^(unknow(n)?|unkonw)$/i.test(n)) return true;
-      if (/^unknown$/i.test(n)) return true; // "Unknown" فقط
+      if (/^unknown$/i.test(n)) return true;
       return false;
     }
 
-    // تبني صفوف الجدول لــ معرض معيّن (اسم المعرض أو '')
+    // تجميع صفوف موظفين لمعرض معيّن (أو فارغ = كل المعارض بعد فلترة المدير)
     function buildRowsForOutlet(outletFilter){
       const managerSel = $('#manager').value;
       const from = $('#from').value;
@@ -221,7 +258,7 @@
 
       const outletTotal = F.reduce((s,r)=>s+(+r.net_amount||0),0);
 
-      // تجميع حسب الموظف
+      // تجميع حسب الموظف (الفترة المختارة)
       const byStaff = {};
       F.forEach(r=>{
         const id = r.staff_id;
@@ -233,7 +270,7 @@
         byStaff[id].oneBills += +r.one_item_bills || 0;
       });
 
-      // MTD (من بداية الشهر حتى "إلى")
+      // MTD (من بداية الشهر حتى "إلى") لاستخدامه في إنجاز التارجت والهجين
       const mStart = monthStartOf(to).toISOString().slice(0,10);
       const mEnd   = to || (facts.length ? facts.map(x=>x.bill_date).sort().slice(-1)[0] : '');
 
@@ -264,16 +301,104 @@
         const onePct  = v.bills>0 ? (v.oneBills/v.bills*100) : 0;
         const avg     = v.bills ? (v.net/v.bills) : 0;
         return { id, name:v.name, net:v.net, bills:v.bills, oneBills:v.oneBills,
-                 onePct, contribPct:contrib, target, achPct, remain, daily, avg };
+                 onePct, contribPct:contrib, target, achPct, remain, daily, avg, mtdNet };
       });
 
       rows.sort((a,b)=>b.net-a.net);
 
-      // KPIs لهذه المجموعة
       const totNet   = rows.reduce((s,x)=>s+x.net,0);
       const totBills = rows.reduce((s,x)=>s+x.bills,0);
 
       return {rows, totNet, totBills};
+    }
+
+    // ===== Top 5 Rendering (مبسّط كما طلبت) =====
+    function renderTop(rows){
+      const listEl = $('#top5List');
+      const bSales = $('#btnTopSales'), bAchv = $('#btnTopAchv'), bEff = $('#btnTopEff');
+
+      bSales.classList.toggle('active', currentTopMode==='sales');
+      bAchv.classList.toggle('active',  currentTopMode==='achv');
+      bEff.classList.toggle('active',   currentTopMode==='eff');
+
+      const arr = rows.slice();
+
+      // حسابات الهجين
+      const maxMTD = Math.max(0, ...arr.map(r=>r.mtdNet || 0));
+
+      let sorted;
+      if(currentTopMode === 'sales'){
+        sorted = arr.sort((a,b)=> b.net - a.net).slice(0,5);
+      }else if(currentTopMode === 'achv'){
+        sorted = arr
+          .filter(r => (r.target||0) > 0)
+          .sort((a,b)=>{
+            if(b.achPct !== a.achPct) return b.achPct - a.achPct;
+            return b.net - a.net;
+          })
+          .slice(0,5);
+      }else{
+        sorted = arr
+          .filter(r => (r.target||0) > 0 && (maxMTD>0))
+          .map(r=>{
+            const salesRatio  = maxMTD>0 ? (r.mtdNet / maxMTD) : 0;
+            const targetRatio = r.target>0 ? (r.mtdNet / r.target) : 0;
+            const score = 0.5*salesRatio + 0.5*targetRatio;
+            return {...r, _score: score};
+          })
+          .sort((a,b)=>{
+            if(b._score !== a._score) return b._score - a._score;
+            return b.mtdNet - a.mtdNet;
+          })
+          .slice(0,5);
+      }
+
+      // عرض مبسّط بنظام أرقام كبيرة
+      listEl.innerHTML = '';
+      sorted.forEach((r,i)=>{
+        const row = document.createElement('div');
+        row.className = 'row';
+
+        // المتركس حسب الوضع
+        let metricsHTML = '';
+        if(currentTopMode==='sales'){
+          metricsHTML = `
+            <div class="metric big">
+              <div class="label">المبيعات</div>
+              <div class="value">${fmt(r.net||0)}</div>
+            </div>`;
+        } else if(currentTopMode==='achv'){
+          metricsHTML = `
+            <div class="metric big">
+              <div class="label">% التحقيق</div>
+              <div class="value">${(r.achPct||0).toFixed(0)}%</div>
+            </div>
+            <div class="metric">
+              <div class="label">المبيعات</div>
+              <div class="value">${fmt(r.mtdNet||0)}</div>
+            </div>
+            <div class="metric">
+              <div class="label">التارجت</div>
+              <div class="value">${fmt(r.target||0)}</div>
+            </div>`;
+        } else {
+          metricsHTML = `
+            <div class="metric big">
+              <div class="label">النقاط </div>
+              <div class="value">${((r._score||0)*100).toFixed(0)}%</div>
+            </div>`;
+        }
+
+        row.innerHTML = `
+          <div><b>${i+1}.</b> ${r.name}</div>
+          <div class="metrics">${metricsHTML}</div>
+        `;
+        listEl.appendChild(row);
+      });
+
+      if(sorted.length===0){
+        listEl.innerHTML = `<div class="row"><div>لا توجد بيانات مطابقة للفلتر الحالي.</div></div>`;
+      }
     }
 
     function renderSingleTable(outletName){
@@ -282,18 +407,21 @@
 
       const {rows, totNet, totBills} = buildRowsForOutlet(outletName);
 
-      // إظهار موظفي المعرض الحالي فقط
       const finalRows = (onlyCurrent && outletName)
         ? rows.filter(r=> isInOutletOnDate(r.id, outletName, refDate))
         : rows;
 
-      // KPIs أعلى الصفحة (لعرض مفرد)
+      // KPIs
       const netSum   = finalRows.reduce((s,x)=>s+x.net,0);
       const billsSum = finalRows.reduce((s,x)=>s+x.bills,0);
       $('#kpiNet').textContent  = fmt(netSum);
       $('#kpiBills').textContent= fmt(billsSum);
       $('#kpiAvg').textContent  = fmt(netSum/(billsSum||1));
 
+      // Top 5
+      renderTop(finalRows);
+
+      // جدول
       const tb = $('#tbl tbody');
       tb.innerHTML = '';
       finalRows.forEach(r=>{
@@ -321,10 +449,12 @@
 
       const outletsList = managerOutlets[managerName] || [];
       let totalNetAll = 0, totalBillsAll = 0;
+      let allRows = [];
 
       outletsList.forEach(outName=>{
         const {rows, totNet, totBills} = buildRowsForOutlet(outName);
         totalNetAll += totNet; totalBillsAll += totBills;
+        allRows = allRows.concat(rows);
 
         const box = document.createElement('div');
         box.className = 'outlet-box';
@@ -371,26 +501,27 @@
         wrap.appendChild(box);
       });
 
-      // KPIs إجمالي كل معارض المدير
+      // KPIs إجمالية
       $('#kpiNet').textContent  = fmt(totalNetAll);
       $('#kpiBills').textContent= fmt(totalBillsAll);
       $('#kpiAvg').textContent  = fmt(totalNetAll/(totalBillsAll||1));
+
+      // Top 5 على مستوى كل معارض المدير
+      renderTop(allRows);
     }
 
     function render() {
       const managerSel = $('#manager').value;
       const outletSel  = $('#outlet').value;
 
-      // إذا كان في مدير مختار و"المعرض" فارغ → عرض متعدد
       if (managerSel && !outletSel) {
         $('#tbl').classList.add('hidden');
         $('#multi').classList.remove('hidden');
         renderMultiForManager(managerSel);
       } else {
-        // عرض مفرد (كل المدراء أو مدير + معرض معيّن)
         $('#multi').classList.add('hidden');
         $('#tbl').classList.remove('hidden');
-        renderSingleTable(outletSel || ''); // فارغ = كل المعارض بعد فلترة المدير (لو موجود)
+        renderSingleTable(outletSel || '');
       }
     }
 
