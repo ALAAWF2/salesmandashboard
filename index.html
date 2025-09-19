@@ -17,17 +17,30 @@
     .card{background:var(--card); padding:12px 16px; border-radius:12px; box-shadow:0 1px 4px rgba(0,0,0,.07); min-width:160px}
     .muted{color:var(--muted); font-size:12px}
     .kpi-val{font-weight:700;font-size:20px}
+
+    /* ===== الجدول ===== */
     table{width:100%; border-collapse:collapse; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.07)}
-    th,td{padding:10px 12px; border-bottom:1px solid var(--edge); font-size:14px; text-align:right}
+    th,td{padding:12px 12px; border-bottom:1px solid var(--edge); font-size:14px}
     th{background:#fff3e6}
     tr:hover{background:#fffdf8}
     .neg{color:#c62828; font-weight:700}
+
+    /* سنتر وتكبير الأعمدة الرقمية (كل الأعمدة ما عدا اسم الموظف) */
+    /* يطبّق على كل الجداول اللي تحمل الكلاس data-grid */
+.data-grid th:nth-child(n+2), .data-grid td:nth-child(n+2){ text-align:center; }
+.data-grid td:nth-child(n+2){
+  font-size:16.5px;
+  font-weight:700;
+  letter-spacing:.2px;
+}
+
+
     label.chk{display:inline-flex; gap:6px; align-items:center; user-select:none}
     .outlet-box{background:#fff; border-radius:14px; box-shadow:0 2px 6px rgba(0,0,0,.06); padding:14px; margin:16px 0}
     .outlet-title{margin:0 0 10px; font-weight:700; color:#e67e22}
     .hidden{display:none}
 
-    /* ===== Top 5 block (مبسّط) ===== */
+    /* ===== Top 5 block ===== */
     .top5-card{background:#fff; border-radius:12px; box-shadow:0 1px 4px rgba(0,0,0,.07); padding:12px 14px; margin: 6px 0 16px}
     .top5-head{display:flex; align-items:center; justify-content:space-between; gap:8px}
     .top5-title{margin:0; color:#e67e22; font-weight:700}
@@ -35,15 +48,15 @@
     .btn{padding:6px 10px;border:1px solid #ddd;border-radius:8px;background:#fafafa;cursor:pointer;font-size:13px}
     .btn.active{background:#e67e22;color:#fff;border-color:#e67e22}
 
-    .top5-list .row{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px dashed #f1f5f9}
+    .top5-list .row{display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px dashed #f1f5f9}
     .row b{color:#243b53}
 
-    /* أرقام واضحة وكبيرة */
-    .metrics{display:flex; gap:14px; align-items:center; flex-wrap:wrap}
-    .metric{display:flex; flex-direction:column; align-items:flex-end; min-width:120px}
+    /* أرقام كبيرة ومتمركزة في Top 5 */
+    .metrics{display:flex; gap:18px; align-items:center; flex-wrap:wrap; justify-content:center}
+    .metric{display:flex; flex-direction:column; align-items:center; min-width:130px}
     .metric .label{font-size:11px; color:#90a4ae}
-    .metric .value{font-size:20px; font-weight:700; color:#243b53; line-height:1}
-    .metric.big .value{font-size:22px}
+    .metric .value{font-size:28px; font-weight:800; color:#243b53; line-height:1}
+    .metric.big .value{font-size:34px}
   </style>
 </head>
 <body>
@@ -81,14 +94,14 @@
       <div class="btns">
         <button id="btnTopSales" class="btn">أعلى مبيعات</button>
         <button id="btnTopAchv"  class="btn">تحقيق التارجت</button>
-        <button id="btnTopEff"   class="btn">كفاءة الموظف </button>
+        <button id="btnTopEff"   class="btn">كفاءة الموظف (هجين)</button>
       </div>
     </div>
     <div id="top5List" class="top5-list" style="margin-top:8px;"></div>
   </div>
 
   <!-- جدول مفرد -->
-  <table id="tbl" class="">
+ <table id="tbl" class="data-grid">
     <thead>
       <tr>
         <th>الموظف</th>
@@ -312,7 +325,7 @@
       return {rows, totNet, totBills};
     }
 
-    // ===== Top 5 Rendering (مبسّط كما طلبت) =====
+    // ===== Top 5 Rendering =====
     function renderTop(rows){
       const listEl = $('#top5List');
       const bSales = $('#btnTopSales'), bAchv = $('#btnTopAchv'), bEff = $('#btnTopEff');
@@ -353,13 +366,12 @@
           .slice(0,5);
       }
 
-      // عرض مبسّط بنظام أرقام كبيرة
+      // عرض أرقام كبيرة ومتمركزة
       listEl.innerHTML = '';
       sorted.forEach((r,i)=>{
         const row = document.createElement('div');
         row.className = 'row';
 
-        // المتركس حسب الوضع
         let metricsHTML = '';
         if(currentTopMode==='sales'){
           metricsHTML = `
@@ -384,7 +396,7 @@
         } else {
           metricsHTML = `
             <div class="metric big">
-              <div class="label">النقاط </div>
+              <div class="label">السكور (هجين)</div>
               <div class="value">${((r._score||0)*100).toFixed(0)}%</div>
             </div>`;
         }
@@ -405,7 +417,7 @@
       const onlyCurrent = $('#onlyCurrent').checked;
       const refDate = parseD($('#to').value) || today0();
 
-      const {rows, totNet, totBills} = buildRowsForOutlet(outletName);
+      const {rows} = buildRowsForOutlet(outletName);
 
       const finalRows = (onlyCurrent && outletName)
         ? rows.filter(r=> isInOutletOnDate(r.id, outletName, refDate))
@@ -460,7 +472,7 @@
         box.className = 'outlet-box';
         box.innerHTML = `
           <h3 class="outlet-title">${outName}</h3>
-          <table>
+            <table class="data-grid">
             <thead>
               <tr>
                 <th>الموظف</th>
@@ -502,9 +514,9 @@
       });
 
       // KPIs إجمالية
-      $('#kpiNet').textContent  = fmt(totalNetAll);
-      $('#kpiBills').textContent= fmt(totalBillsAll);
-      $('#kpiAvg').textContent  = fmt(totalNetAll/(totalBillsAll||1));
+      document.getElementById('kpiNet').textContent  = fmt(totalNetAll);
+      document.getElementById('kpiBills').textContent= fmt(totalBillsAll);
+      document.getElementById('kpiAvg').textContent  = fmt(totalNetAll/(totalBillsAll||1));
 
       // Top 5 على مستوى كل معارض المدير
       renderTop(allRows);
@@ -515,12 +527,12 @@
       const outletSel  = $('#outlet').value;
 
       if (managerSel && !outletSel) {
-        $('#tbl').classList.add('hidden');
-        $('#multi').classList.remove('hidden');
+        document.getElementById('tbl').classList.add('hidden');
+        document.getElementById('multi').classList.remove('hidden');
         renderMultiForManager(managerSel);
       } else {
-        $('#multi').classList.add('hidden');
-        $('#tbl').classList.remove('hidden');
+        document.getElementById('multi').classList.add('hidden');
+        document.getElementById('tbl').classList.remove('hidden');
         renderSingleTable(outletSel || '');
       }
     }
