@@ -24,7 +24,6 @@
     th{background:#fff3e6}
     tr:hover{background:#fffdf8}
     .neg{color:#c62828; font-weight:700}
-    canvas{max-width:100%;}
     label.chk{display:inline-flex; gap:6px; align-items:center; user-select:none}
   </style>
 </head>
@@ -73,17 +72,12 @@
     <tbody></tbody>
   </table>
 
-  <h3 style="margin-top:18px">المبيعات اليومية</h3>
-  <canvas id="line"></canvas>
-
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
     // تنسيقات أرقام
     const fmt  = n => (+n||0).toLocaleString('en-US', {maximumFractionDigits:0});
 
     let facts=[], outlets=[], staff=[], staffMap={};
     let hist=[], histMap={};   // تاريخ الانتساب
-    let chart;
 
     // ====== تواريخ مساعدة ======
     function parseD(s){ if(!s) return null; return new Date(s+'T00:00:00'); }
@@ -229,12 +223,8 @@
         const onePct  = v.bills>0 ? (v.oneBills/v.bills*100) : 0;
         const avg     = v.bills ? (v.net/v.bills) : 0;
 
-        return {
-          id, name:v.name,
-          net:v.net, bills:v.bills, oneBills:v.oneBills,
-          onePct, contribPct:contrib,
-          target, achPct, remain, daily, avg
-        };
+        return { id, name:v.name, net:v.net, bills:v.bills, oneBills:v.oneBills,
+                 onePct, contribPct:contrib, target, achPct, remain, daily, avg };
       });
 
       // فلترة "موظفي المعرض الحالي فقط"
@@ -270,19 +260,6 @@
           <td>${fmt(r.avg)}</td>
         `;
         tb.appendChild(tr);
-      });
-
-      // خط المبيعات اليومية (حسب الفترة المعروضة)
-      const byDate = {};
-      f.forEach(r=>{ byDate[r.bill_date] = (byDate[r.bill_date]||0) + (+r.net_amount||0); });
-      const labels = Object.keys(byDate).sort();
-      const data   = labels.map(d=>byDate[d]);
-
-      if(chart) chart.destroy();
-      chart = new Chart(document.getElementById('line').getContext('2d'), {
-        type: 'line',
-        data: { labels, datasets:[{ label:'Net Sales', data }] },
-        options: { responsive:true }
       });
     }
 
